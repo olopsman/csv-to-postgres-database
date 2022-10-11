@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="a3f70b30-fad9-40ce-8b23-af1cfbb7a074" >
+		<http:listener-connection host="0.0.0.0" port="9999" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="ed8ad74a-10e9-458d-a2d1-488f9c7286aa" >
+		<db:generic-connection url="jdbc:postgresql://localhost:5432/csvdb" driverClassName="org.postgresql.Driver" user="pauloorquillo" />
+	</db:config>
+	<flow name="csv-to-postgres-databaseFlow" doc:id="2a1020f2-6743-4b7a-9679-f78d0b62fc9e" >
+		<http:listener doc:name="Listener" doc:id="df7c2971-2eb9-44d0-be22-22458a458410" config-ref="HTTP_Listener_config" path="/apps"/>
+		<logger level="INFO" doc:name="Logger" doc:id="c3ec37c2-46b0-402e-9077-ce31fa4063f8" message="Input CSV = #[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="fe4420be-a78f-48bd-bbdd-d81e2b2eb2ef" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload map {
+	id: $.id,
+	name: $.name
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="b4c0a19c-5539-480c-a94b-058f35a8dfc6" >
+			<logger level="INFO" doc:name="Logger" doc:id="b89ba056-7eb3-4953-bf5c-4b2522384b07" message="The current record si - #[payload]"/>
+			<db:insert doc:name="Insert" doc:id="3af3016b-31a2-4e9b-91e7-e24269ae674f" config-ref="Database_Config">
+				<db:sql ><![CDATA[INSERT INTO "users" (id, name) VALUES (:id, :name);]]></db:sql>
+				<db:input-parameters ><![CDATA[#[{
+'id': payload.id,
+'name': payload.name}]]]></db:input-parameters>
+			</db:insert>
+		</foreach>
+	</flow>
+</mule>
